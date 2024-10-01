@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"unicode"
 	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
@@ -15,29 +16,6 @@ var _ = json.Marshal
 // Example:
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
-func decodeBencode(bencodedString string) (interface{}, error) {
-	if unicode.IsDigit(rune(bencodedString[0])) {
-		var firstColonIndex int
-
-		for i := 0; i < len(bencodedString); i++ {
-			if bencodedString[i] == ':' {
-				firstColonIndex = i
-				break
-			}
-		}
-
-		lengthStr := bencodedString[:firstColonIndex]
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			return "", err
-		}
-
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
-	} else {
-		return "", fmt.Errorf("Only strings are supported at the moment")
-	}
-}
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -60,5 +38,38 @@ func main() {
 	} else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
+	}
+}
+
+func decodeBencode(bencodedString string) (interface{}, error) {
+    fval := rune(bencodedString[0])
+	if unicode.IsDigit(fval) {
+		var firstColonIndex int
+
+		for i := 0; i < len(bencodedString); i++ {
+			if bencodedString[i] == ':' {
+				firstColonIndex = i
+				break
+			}
+		}
+
+		lengthStr := bencodedString[:firstColonIndex]
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil {
+			return "", err
+		}
+
+		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+	} else if fval == 'i'{
+        eIdx := strings.Index(bencodedString, "e")
+        value, err := strconv.Atoi(bencodedString[1:eIdx])
+        if err != nil {
+            return "", err
+        }
+        return value, nil
+
+    } else {
+		return "", fmt.Errorf("Only strings are supported at the moment")
 	}
 }
