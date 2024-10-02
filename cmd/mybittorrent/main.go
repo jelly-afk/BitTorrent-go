@@ -85,7 +85,27 @@ func decodeBencode(bencodedString string) (string, interface{}, error) {
 
         }
         return bencodedString[1:], res, nil
-    } else {
+    } else if fval == 'd' {
+        res := map[string]interface{}{}
+        bencodedString = bencodedString[1:]
+        for bencodedString[0] != byte('e'){
+            var ikey interface{}
+            var val interface{}
+            var err error
+            bencodedString, ikey, err = decodeBencode(bencodedString)
+            if err != nil {
+                return "", "", err
+            }
+            bencodedString, val, err = decodeBencode(bencodedString)
+            if err != nil {
+                return "", "", err
+            }
+        key := ikey.(string)
+        res[key] = val
+        }
+        return bencodedString, res, nil
+
+    }else {
 		return "","", fmt.Errorf("Only strings are supported at the moment")
 	}
 }
