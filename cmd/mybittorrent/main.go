@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
 	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
 
@@ -27,7 +28,7 @@ func main() {
 		//
 		 bencodedValue := os.Args[2]
 		//
-	 decoded, err := decodeBencode(bencodedValue)
+	 _, decoded, err := decodeBencode(bencodedValue)
 		 if err != nil {
 		 	fmt.Println(err)
 		 	return
@@ -41,7 +42,7 @@ func main() {
 	}
 }
 
-func decodeBencode(bencodedString string) (interface{}, error) {
+func decodeBencode(bencodedString string) (string, interface{}, error) {
     fval := rune(bencodedString[0])
 	if unicode.IsDigit(fval) {
 		var firstColonIndex int
@@ -57,19 +58,34 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 
 		length, err := strconv.Atoi(lengthStr)
 		if err != nil {
-			return "", err
+			return "","", err
 		}
+        strEnd := firstColonIndex+1+length
 
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+        return bencodedString[strEnd:],bencodedString[firstColonIndex+1 : strEnd], nil
 	} else if fval == 'i'{
         eIdx := strings.Index(bencodedString, "e")
         value, err := strconv.Atoi(bencodedString[1:eIdx])
         if err != nil {
-            return "", err
+            return "","",  err
         }
-        return value, nil
+        return bencodedString[eIdx+1:],value, nil
 
+    } else if fval == 'l'{
+        res := []interface{}{}
+        bencodedString = bencodedString[1:]
+        for bencodedString[0] != byte('e'){
+            var val interface{}
+            var err error
+            bencodedString, val, err = decodeBencode(bencodedString)
+            if err != nil {
+                return "", "", err
+            }
+            res = append(res, val)
+
+        }
+        return bencodedString[1:], res, nil
     } else {
-		return "", fmt.Errorf("Only strings are supported at the moment")
+		return "","", fmt.Errorf("Only strings are supported at the moment")
 	}
 }
