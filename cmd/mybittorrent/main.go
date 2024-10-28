@@ -73,6 +73,18 @@ func main() {
         sha1Hash := hash.Sum(nil)
         hexHash := hex.EncodeToString(sha1Hash)
         fmt.Print("Info Hash: ", hexHash)
+        fmt.Println("Piece Length: ", infoMap["piece length"])
+        pieceStr, ok := infoMap["pieces"].(string)
+        pieceBytes := []byte(pieceStr)
+        var pieces []string
+        for len(pieceBytes) > 20 {
+            pieces = append(pieces, hex.EncodeToString(pieceBytes[:20]))
+        } 
+        fmt.Println("Piece Hashes: ")
+        for _, s := range pieces {
+            fmt.Printf("%x", s)
+        }
+
 
     }else {
 		fmt.Println("Unknown command: " + command)
