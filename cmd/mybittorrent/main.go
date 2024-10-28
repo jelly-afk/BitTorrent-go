@@ -72,18 +72,16 @@ func main() {
         hash.Write([]byte(bencodedInfo))
         sha1Hash := hash.Sum(nil)
         hexHash := hex.EncodeToString(sha1Hash)
-        fmt.Print("Info Hash: ", hexHash)
-        fmt.Println("Piece Length: ", infoMap["piece length"])
+        fmt.Printf("Piece Length: %d", infoMap["piece length"])
         pieceStr, ok := infoMap["pieces"].(string)
-        pieceBytes := []byte(pieceStr)
-        var pieces []string
-        for len(pieceBytes) > 20 {
-            pieces = append(pieces, hex.EncodeToString(pieceBytes[:20]))
-        } 
         fmt.Println("Piece Hashes: ")
-        for _, s := range pieces {
-            fmt.Printf("%x", s)
-        }
+        for len(pieceStr) > 0 {
+            byteHash := []byte(pieceStr[:20])
+            fmt.Printf("%x\n", byteHash)
+            pieceStr = pieceStr[20:]
+        } 
+        fmt.Print("Info Hash: ", hexHash)
+
 
 
     }else {
