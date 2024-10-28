@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"unicode"
-
 	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
 
@@ -36,7 +36,31 @@ func main() {
 		//
 		 jsonOutput, _ := json.Marshal(decoded)
 		 fmt.Println(string(jsonOutput))
-	} else {
+	} else if command == "info"{
+        fileName := os.Args[2]
+        data, err  := os.ReadFile(fileName)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        _, decoded, err := decodeBencode(string(data))
+        if err != nil {
+            log.Fatal(err)
+        }
+        headerMap, ok := decoded.(map[string]interface{})
+        if ok {
+            fmt.Printf("Tracker URL: %s\n", headerMap["announce"])
+        }else {
+            fmt.Println("invalid type")
+        }
+        infoMap, ok := headerMap["info"].(map[string]interface{})
+        if ok {
+            fmt.Printf("Length: %d\n", infoMap["length"])
+        }else {
+            fmt.Println("invalid type")
+        }
+
+    }else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
