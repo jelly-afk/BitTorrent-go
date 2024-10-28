@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -59,6 +62,15 @@ func main() {
         }else {
             fmt.Println("invalid type")
         }
+        bencodedInfo, err := bencode(infoMap)
+        if err != nil {
+            log.Fatal(err)
+        }
+        hash := sha1.New()
+        hash.Write([]byte(bencodedInfo))
+        sha1Hash := hash.Sum(nil)
+        hexHash := hex.EncodeToString(sha1Hash)
+        println("Info Hash: ", hexHash)
 
     }else {
 		fmt.Println("Unknown command: " + command)
@@ -132,4 +144,34 @@ func decodeBencode(bencodedString string) (string, interface{}, error) {
     }else {
 		return "","", fmt.Errorf("Only strings are supported at the moment")
 	}
+}
+
+func bencode(decoded interface{}) (string, error) {
+    switch t := decoded.(type) {
+    case int:
+        return fmt.Sprintf("i%de", t), nil
+    case string:
+        return fmt.Sprintf("%d:%s", len(t), t), nil
+    case []interface{}:
+        var res []string
+        for _, v := range t {
+            s, err := bencode(v)
+            if err != nil {
+                log.Fatal(err)
+            }
+            res = append(res, s)
+        }
+        return fmt.Sprintf("l%se",strings.Join(res, "")), nil
+    case map[string]interface{}:
+        var res []string
+        for k, v := range t {
+            s, err := bencode([]interface{}{k, v})
+            if err != nil {
+                log.Fatal(err)
+            }
+            res = append(res, s)
+        }
+        return fmt.Sprintf("d%se", strings.Join(res, "")), nil
+    } 
+    return "", errors.New("invalid type")
 }
