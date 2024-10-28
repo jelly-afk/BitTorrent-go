@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -63,6 +64,7 @@ func main() {
             fmt.Println("invalid type")
         }
         bencodedInfo, err := bencode(infoMap)
+
         if err != nil {
             log.Fatal(err)
         }
@@ -70,7 +72,7 @@ func main() {
         hash.Write([]byte(bencodedInfo))
         sha1Hash := hash.Sum(nil)
         hexHash := hex.EncodeToString(sha1Hash)
-        println("Info Hash: ", hexHash)
+        fmt.Print("Info Hash: ", hexHash)
 
     }else {
 		fmt.Println("Unknown command: " + command)
@@ -97,7 +99,6 @@ func decodeBencode(bencodedString string) (string, interface{}, error) {
 			return "","", err
 		}
         strEnd := firstColonIndex+1+length
-
         return bencodedString[strEnd:],bencodedString[firstColonIndex+1 : strEnd], nil
 	} else if fval == 'i'{
         eIdx := strings.Index(bencodedString, "e")
@@ -163,15 +164,26 @@ func bencode(decoded interface{}) (string, error) {
         }
         return fmt.Sprintf("l%se",strings.Join(res, "")), nil
     case map[string]interface{}:
-        var res []string
+        var keys []string
+        dict := make(map[string]string)
         for k, v := range t {
-            s, err := bencode([]interface{}{k, v})
+            kB, err := bencode(k)
             if err != nil {
                 log.Fatal(err)
             }
-            res = append(res, s)
+            vB, err := bencode(v)
+            if err != nil {
+                log.Fatal(err)
+            }
+            keys = append(keys, k)
+            dict[kB] = vB
         }
-        return fmt.Sprintf("d%se", strings.Join(res, "")), nil
+        sort.Strings(keys)
+        for i, k := range keys {
+        kb,_  := bencode(k)
+            keys[i] = kb+dict[kb]
+    }
+        return fmt.Sprintf("d%se", strings.Join(keys, "")), nil
     } 
     return "", errors.New("invalid type")
 }
