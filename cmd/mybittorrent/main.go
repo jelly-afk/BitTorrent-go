@@ -60,6 +60,7 @@ func main() {
         hash.Write([]byte(bencodedInfo))
         sha1Hash := hash.Sum(nil)
         hexHash := hex.EncodeToString(sha1Hash)
+        fmt.Printf("Length: %d", infoMap["length"])
         fmt.Print("Tracker URL: ", trackerUrl)
         fmt.Printf("Piece Length: %d", infoMap["piece length"])
         pieceStr, ok := infoMap["pieces"].(string)
