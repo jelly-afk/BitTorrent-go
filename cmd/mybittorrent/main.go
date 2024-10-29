@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,26 +47,9 @@ func main() {
 		 fmt.Println(string(jsonOutput))
 	} else if command == "info"{
         fileName := os.Args[2]
-        data, err  := os.ReadFile(fileName)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        _, decoded, err := decodeBencode(string(data))
+        _, infoMap, trackerUrl, err := parseTorrentFile(fileName)
         if err != nil {
             log.Fatal(err)
-        }
-        headerMap, ok := decoded.(map[string]interface{})
-        if ok {
-            fmt.Printf("Tracker URL: %s\n", headerMap["announce"])
-        }else {
-            fmt.Println("invalid type")
-        }
-        infoMap, ok := headerMap["info"].(map[string]interface{})
-        if ok {
-            fmt.Printf("Length: %d\n", infoMap["length"])
-        }else {
-            fmt.Println("invalid type")
         }
         bencodedInfo, err := bencode(infoMap)
 
@@ -76,8 +60,12 @@ func main() {
         hash.Write([]byte(bencodedInfo))
         sha1Hash := hash.Sum(nil)
         hexHash := hex.EncodeToString(sha1Hash)
+        fmt.Println("TrackerUrl URL: ", trackerUrl)
         fmt.Printf("Piece Length: %d", infoMap["piece length"])
         pieceStr, ok := infoMap["pieces"].(string)
+        if !ok {
+            log.Fatal("invalid type")
+        }
         fmt.Println("Piece Hashes: ")
         for len(pieceStr) > 0 {
             byteHash := []byte(pieceStr[:20])
@@ -85,33 +73,12 @@ func main() {
             pieceStr = pieceStr[20:]
         } 
         fmt.Print("Info Hash: ", hexHash)
-
-
-
     }else if command == "peers" {
         fileName := os.Args[2]
-        data, err  := os.ReadFile(fileName)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        _, decoded, err := decodeBencode(string(data))
+        _, infoMap,trackerUrl,  err := parseTorrentFile(fileName)
         if err != nil {
             log.Fatal(err)
         }
-        headerMap, ok := decoded.(map[string]interface{})
-        if !ok {
-            log.Fatal("invalid type")
-        }
-        trackerUrl, ok := headerMap["announce"].(string)
-        if !ok {
-            log.Fatal("invalid type")
-        }
-        infoMap, ok := headerMap["info"].(map[string]interface{})
-        if !ok {
-            log.Fatal("invalid type")
-        }
-
         bencodedInfo, err := bencode(infoMap)
         if err != nil {
             log.Fatal(err)
@@ -158,6 +125,42 @@ func main() {
             peersByte = peersByte[6:]
         }
 
+    } else if command == "handshake"{
+        fileName := os.Args[2]
+        peerAddr := os.Args[3]
+        _, infoMap,_ , err := parseTorrentFile(fileName)
+        if err != nil {
+            log.Fatal(fileName)
+        }
+        bencodedInfo, err  := bencode(infoMap)
+        if err != nil {
+            log.Fatal(err)
+        }
+        hash := sha1.New()
+        hash.Write([]byte(bencodedInfo))
+        sha1Hash := hash.Sum(nil)
+        tcpConn, err := net.Dial("tcp", peerAddr)
+        if err != nil {
+            log.Fatal(err)
+        }
+        defer tcpConn.Close()
+        buffer := make([]byte, 0, 68)
+        buffer = append(buffer, 19)
+        buffer = append(buffer, []byte("BitTorrent protocol")...)
+        buffer = append(buffer, make([]byte, 8)...)
+        buffer = append(buffer, sha1Hash...)
+        buffer = append(buffer, make([]byte, 20)...)
+        _, err = tcpConn.Write(buffer)
+        if err != nil {
+            log.Println("error while writing data in connection", err)
+        }
+        readBuffer := make([]byte, 68)
+        _, err = tcpConn.Read(readBuffer)
+        if err != nil {
+            log.Fatal(err)
+        }
+        peerId := readBuffer[48:]
+        fmt.Printf("Peer ID: %x\n", peerId)
     } else {
         fmt.Println("Unknown command: " + command)
         os.Exit(1)
@@ -270,4 +273,28 @@ func bencode(decoded interface{}) (string, error) {
         return fmt.Sprintf("d%se", strings.Join(keys, "")), nil
     } 
     return "", errors.New("invalid type")
+}
+
+func parseTorrentFile (fileName string) ( map[string]interface{}, map[string]interface{},string,  error) {
+    data, err  := os.ReadFile(fileName)
+    if err != nil {
+        return nil, nil,"",  err
+    }
+    _, decoded, err := decodeBencode(string(data))
+    if err != nil {
+        return nil, nil,"",  err
+    }
+    headerMap, ok := decoded.(map[string]interface{})
+    if !ok {
+        return nil, nil,"",  errors.New("invalid type")
+    }
+    infoMap, ok := headerMap["info"].(map[string]interface{})
+    if !ok {
+        return nil, nil,"",  errors.New("invalid type")
+    }
+    trackerUrl, ok := headerMap["announce"].(string)
+    if !ok {
+        log.Fatal(err)
+    }
+    return headerMap, infoMap,trackerUrl,  nil
 }
