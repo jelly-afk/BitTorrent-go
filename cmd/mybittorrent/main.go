@@ -2,11 +2,15 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -84,10 +88,80 @@ func main() {
 
 
 
-    }else {
-		fmt.Println("Unknown command: " + command)
-		os.Exit(1)
-	}
+    }else if command == "peers" {
+        fileName := os.Args[2]
+        data, err  := os.ReadFile(fileName)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        _, decoded, err := decodeBencode(string(data))
+        if err != nil {
+            log.Fatal(err)
+        }
+        headerMap, ok := decoded.(map[string]interface{})
+        if !ok {
+            log.Fatal("invalid type")
+        }
+        trackerUrl, ok := headerMap["announce"].(string)
+        if !ok {
+            log.Fatal("invalid type")
+        }
+        infoMap, ok := headerMap["info"].(map[string]interface{})
+        if !ok {
+            log.Fatal("invalid type")
+        }
+
+        bencodedInfo, err := bencode(infoMap)
+        if err != nil {
+            log.Fatal(err)
+        }
+        urlStruc, err := url.Parse(trackerUrl)
+        if err != nil {
+            log.Fatal(err)
+        }
+        params := url.Values{}
+        hash := sha1.New()
+        hash.Write([]byte(bencodedInfo))
+        sha1Hash := hash.Sum(nil)
+        pieces := fmt.Sprintf("%v", infoMap["length"])
+        params.Add("info_hash", string(sha1Hash))
+        params.Add("peer_id", "qwertyuiopasdfghjklz")
+        params.Add("port", "6881")
+        params.Add("uploaded", "0")
+        params.Add("downloaded", "0")
+        params.Add("left", pieces)
+        params.Add("compact", "1")
+        urlStruc.RawQuery = params.Encode()
+        res, err := http.Get(urlStruc.String())
+        body, err := io.ReadAll(res.Body)
+        if err != nil {
+            log.Fatal(err)
+        }
+        _, decodedBody, err := decodeBencode(string(body))
+        if err != nil {
+            log.Fatal(err)
+        }
+        bodyMap, ok := decodedBody.(map[string]interface{})
+        if !ok {
+            log.Fatal("invalid type")
+        }
+        peers, ok := bodyMap["peers"].(string)
+        if !ok {
+            log.Fatal("invalid type")
+        }
+        peersByte := []byte(peers)
+        for len(peersByte) > 0 {
+            peer := peersByte[:6]
+            port := binary.BigEndian.Uint16(peer[4:])
+            fmt.Printf("%d.%d.%d.%d:%d\n", peer[0], peer[1] ,peer[2], peer[3], port)
+            peersByte = peersByte[6:]
+        }
+
+    } else {
+        fmt.Println("Unknown command: " + command)
+        os.Exit(1)
+    }
 }
 
 func decodeBencode(bencodedString string) (string, interface{}, error) {
